@@ -1,5 +1,9 @@
 # Sistema de Encuesta de Salud
 
+## Nuevo flujo: solicitudes de usuarios de dominio
+
+Disponible una prueba independiente **PDF → JSON**, sin MySQL ni conexión a Active Directory. Ejecuta `start-domain.ps1` para cargar el PDF y descargar el INSERT simulado. Instalación, reglas y configuración de grupos en [docs/DOMINIO.md](docs/DOMINIO.md).
+
 Aplicación web local para cargar cuestionarios PDF de factores de riesgo psicosocial intralaboral **Forma A**, detectar las respuestas marcadas y almacenarlas de forma estructurada en MySQL.
 
 ![Tecnologías del Sistema de Encuesta de Salud](output/infografia-tecnologias-encuesta-salud.png)

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Solicitudes → Usuarios de dominio</title>
+<style>
+body{font:16px/1.6 system-ui;background:#eef3f8;color:#142b43;margin:0;padding:36px 20px}main{max-width:1000px;margin:auto}section{background:white;padding:28px;border-radius:16px;margin:20px 0;box-shadow:0 5px 25px #17314b0b}h1{font-size:32px;margin:0}p{color:#475d72}button,a.download{background:#145abb;color:white;border:0;border-radius:8px;padding:12px 20px;font:inherit;cursor:pointer;text-decoration:none;display:inline-block}button:disabled{opacity:.5}input{display:block;margin:20px 0;max-width:100%}pre{background:#11263b;color:#e4f1ff;padding:20px;overflow:auto;max-height:500px;border-radius:10px;font-size:13px}table{border-collapse:collapse;width:100%}td,th{text-align:left;border-bottom:1px solid #d9e2eb;padding:12px;vertical-align:top}.scroll{overflow:auto}[hidden]{display:none!important}#status{white-space:pre-wrap}
+select,textarea{font:inherit;padding:12px;border:1px solid #aabccc;border-radius:8px;box-sizing:border-box;width:100%;margin:12px 0 24px}textarea{resize:vertical}#preview{display:block;max-width:100%;max-height:360px;margin:16px 0;border:1px solid #d9e2eb}label{font-weight:600}#services{border:1px solid #aabccc;border-radius:8px;margin:0 0 24px;padding:16px}#services label{display:inline-flex;align-items:center;gap:8px;margin-right:24px}#services input{margin:0}</style>
+<main><h1>Solicitudes → Usuarios de dominio</h1>
+<p>Prueba local · extracción de solicitudes y generación de JSON</p>
+<section><h2>Cargar solicitud</h2><p>Elige el tipo de entrada. El resultado será un JSON de simulación, sin crear cuentas ni escribir en la base de datos.</p>
+<form id="form">
+<label for="type">Tipo de entrada</label>
+<select id="type"><option value="pdf">PDF</option><option value="image">Imagen / captura</option><option value="text">Texto plano</option></select>
+<div id="pdf-panel"><label for="pdf">Documento PDF</label><p>Máximo 20 MB y 50 páginas.</p><input id="pdf" type="file" accept="application/pdf,.pdf" required></div>
+<div id="image-panel" hidden><label for="image">Imagen PNG o JPG</label><p>Selecciona una imagen o pégala con Ctrl+V. Incluye el bloque DE y la tabla completa. Requiere OCR en español. Máximo 20 MB.</p><input id="image" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" disabled><img id="preview" alt="Vista previa de la captura seleccionada" hidden></div>
+<div id="text-panel" hidden><label for="text">Texto de la solicitud</label><p>Pega un mensaje de WhatsApp con DNI, nombre completo, usuario y, opcionalmente, área en la cuarta línea, o una tabla. Los mensajes repetidos se consolidan. Selecciona qué servicios crear para las personas del texto.</p><textarea id="text" rows="12" maxlength="100000" disabled placeholder="40461585
+FIDEL CENTENO UTANI
+FCENTENO
+logistica"></textarea><fieldset id="services"><legend>Servicios a crear</legend><label><input type="checkbox" value="dominio" name="service"> Dominio</label><label><input type="checkbox" value="sgd" name="service"> SGD</label><p>Marca uno o ambos. Tu selección determina los inserts simulados, aunque el mensaje mencione otros servicios.</p></fieldset></div>
+<button id="submit">Extraer y construir JSON</button></form><p id="status" role="status" aria-live="polite"></p></section>
+<section id="result" hidden><h2>Resultado de la extracción</h2><p id="summary"></p><div class="scroll"><table><thead><tr><th>Apellidos y nombres</th><th>Área / grupo</th><th>Estado</th></tr></thead><tbody id="rows"></tbody></table></div><p>Revisa los datos contra el documento antes de utilizar esta simulación.</p><a class="download" id="download" download="usuarios-dominio.json">Descargar JSON</a><details><summary>Ver JSON completo</summary><pre id="json"></pre></details></section></main>
+<script>
+const form=document.querySelector('#form'),status=document.querySelector('#status'),button=document.querySelector('#submit');let downloadUrl;
+const type=document.querySelector('#type');let previewUrl;
+function resetResult(){document.querySelector('#result').hidden=true;status.textContent=''}
+function showPreview(){const file=document.querySelector('#image').files[0],preview=document.querySelector('#preview');if(previewUrl)URL.revokeObjectURL(previewUrl);preview.hidden=!file;if(file){previewUrl=URL.createObjectURL(file);preview.src=previewUrl}}
+type.addEventListener('change',()=>{for(const [mode,id] of [['pdf','pdf'],['image','image'],['text','text']]){const active=type.value===mode;document.querySelector('#'+mode+'-panel').hidden=!active;const input=document.querySelector('#'+id);input.disabled=!active;input.required=active}resetResult()});
+document.querySelector('#services').addEventListener('change',resetResult);
+for(const id of ['pdf','image','text'])document.querySelector('#'+id).addEventListener('input',resetResult);
+document.querySelector('#image').addEventListener('change',showPreview);
+document.addEventListener('paste',event=>{if(type.value!=='image'||button.disabled)return;const item=[...(event.clipboardData?.items||[])].find(item=>['image/png','image/jpeg'].includes(item.type));if(!item)return;const file=item.getAsFile();if(!file)return;const transfer=new DataTransfer();transfer.items.add(file);document.querySelector('#image').files=transfer.files;resetResult();showPreview();status.textContent='Captura pegada. Pulsa Extraer y construir JSON.';event.preventDefault()});
+form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;type.disabled=true;document.querySelector('#result').hidden=true;status.textContent='Procesando solicitud…';
+const mode=type.value;const selected=[...document.querySelectorAll('[name=service]:checked')].map(box=>box.value);if(mode==='text'&&!selected.length){status.textContent='Selecciona Dominio, SGD o ambos.';button.disabled=false;type.disabled=false;return}document.querySelector('#services').disabled=true;const input=document.querySelector('#'+mode);input.disabled=true;
+try{let response;if(mode==='text'){response=await fetch('/api/simular-texto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto:input.value,servicios:selected})})}else{const data=new FormData();data.append('file',input.files[0]);response=await fetch('/api/simular',{method:'POST',body:data})}
+const result=await response.json();if(!response.ok)throw new Error(typeof result.detail==='string'?result.detail:'No se pudo procesar el documento.');
+const json=JSON.stringify(result,null,2);document.querySelector('#json').textContent=json;const rows=document.querySelector('#rows');rows.replaceChildren();for(const user of result.usuarios){const row=document.createElement('tr');for(const value of [user.nombre_completo_original,(user.area||'Área no reconocida')+' / '+(user.grupo_ad||'Grupo por configurar'),(user.servicios_a_crear?.join(' + ')||'Dominio')+' · '+user.estado+'\n'+user.observaciones.join('\n')]){const cell=document.createElement('td');cell.textContent=value;row.appendChild(cell)}rows.appendChild(row)}
+document.querySelector('#summary').textContent=`${result.usuarios.length} usuarios · ${result.excluidos.length} excluidos · ${result.requiere_revision?'Requiere revisión':'Listo para simulación'}`;
+if(downloadUrl)URL.revokeObjectURL(downloadUrl);downloadUrl=URL.createObjectURL(new Blob([json],{type:'application/json'}));document.querySelector('#download').href=downloadUrl;document.querySelector('#result').hidden=false;status.textContent=result.advertencias.join('\n')||'Extracción terminada. Ya puedes descargar el archivo JSON.';
+}catch(error){status.textContent=error.message}finally{button.disabled=false;type.disabled=false;input.disabled=false;document.querySelector('#services').disabled=false}});
+</script></html>
+

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Historial de Registros Local</title>
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/styles.css">
+<script src="/ui.js"></script>
+<main>
+<div class="view-navigation" style="margin-bottom: 2rem;"><a href="/" class="btn btn-secondary">← Volver a solicitudes</a></div>
+<h1>Historial de Registros Local</h1>
+<p>Esta tabla muestra las credenciales creadas localmente en este equipo. Por seguridad, esta información solo se almacena en tu navegador actual y no se comparte con otros equipos.</p>
+<div class="button-group" style="margin-top: 1rem;">
+  <button id="clear-history" class="btn-secondary">Borrar historial</button>
+</div>
+<div id="history-container" style="margin-top: 2rem;"></div>
+</main>
+<script>
+function renderHistory() {
+  const container = document.getElementById('history-container');
+  let history = [];
+  try {
+    history = JSON.parse(localStorage.getItem('ad_registration_history') || '[]');
+  } catch(e) {}
+  
+  if (!history.length) {
+    container.innerHTML = '<p style="color:var(--text-secondary);">No hay registros recientes.</p>';
+    return;
+  }
+  let html = '<div class="table-responsive" style="overflow-x: auto;"><table style="width:100%; border-collapse: collapse; text-align: left; font-size: 0.9em; background: var(--surface-default); border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1);"><thead style="background: var(--surface-sunken);"><tr style="border-bottom: 1px solid var(--border-default);"><th style="padding: 12px 16px;">Fecha</th><th style="padding: 12px 16px;">Nombre</th><th style="padding: 12px 16px;">DNI / Área</th><th style="padding: 12px 16px;">Dominio (Usu / Pas)</th><th style="padding: 12px 16px;">SGD (Usu / Pas)</th></tr></thead><tbody>';
+  for (const item of history) {
+    const domStr = item.domain ? `<b>${item.domain.user}</b><br><span style="font-family:monospace; color:var(--text-error, #d32f2f);">${item.domain.pass}</span>` : '<span style="color:var(--text-tertiary);">-</span>';
+    const sgdStr = item.sgd ? `<b>${item.sgd.user}</b><br><span style="font-family:monospace; color:var(--text-error, #d32f2f);">${item.sgd.pass}</span>` : '<span style="color:var(--text-tertiary);">-</span>';
+    html += `<tr style="border-bottom: 1px solid var(--border-default);"><td style="padding: 12px 16px; white-space: nowrap; color:var(--text-secondary);">${item.date}</td><td style="padding: 12px 16px;">${item.name}</td><td style="padding: 12px 16px;">${item.dni}<br><small style="color:var(--text-secondary);">${item.area}</small></td><td style="padding: 12px 16px;">${domStr}</td><td style="padding: 12px 16px;">${sgdStr}</td></tr>`;
+  }
+  html += '</tbody></table></div>';
+  container.innerHTML = html;
+}
+
+document.getElementById('clear-history').addEventListener('click', () => {
+  if (confirm('¿Estás seguro de que quieres borrar el historial local? Esta acción no se puede deshacer.')) {
+    localStorage.removeItem('ad_registration_history');
+    renderHistory();
+    showToast('Historial borrado exitosamente.', 'success');
+  }
+});
+
+window.addEventListener('load', renderHistory);
+</script>
+</html>

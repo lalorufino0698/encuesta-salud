@@ -4,13 +4,17 @@ import os
 from typing import Literal
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.concurrency import run_in_threadpool
+from fastapi import FastAPI, File, HTTPException, UploadFile, Request
+from fastapi.concurrency import run_in_threadpool         
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from app.domain_extraction import extract_document, extract_plain_text
 from simulate_domain import load_groups
+from app import ad_registration
+from app import sgd_registration
+from app.dni_lookup import fetch_dni_data
+from pydantic import ValidationError
 
 app = FastAPI(title="Simulación de usuarios de dominio")
 
@@ -32,7 +36,118 @@ def simulate_text(request: TextRequest):
 
 @app.get("/")
 def index():
-    return FileResponse(Path(__file__).parent / "static" / "domain.html")
+    return FileResponse(Path(__file__).parent / "static" / "domain.html", headers={'Cache-Control': 'no-store'})
+
+
+@app.get('/directorio')
+def directory_page():
+    return FileResponse(Path(__file__).parent / 'static' / 'directory.html')
+
+
+@app.get('/historial')
+def history_page():
+    return FileResponse(Path(__file__).parent / 'static' / 'history.html', headers={'Cache-Control': 'no-store'})
+
+
+@app.get('/registro-ad.js')
+def registration_script():
+    return FileResponse(Path(__file__).parent / 'static' / 'registration.js', media_type='text/javascript', headers={'Cache-Control': 'no-store'})
+
+
+@app.get('/styles.css')
+def styles():
+    return FileResponse(Path(__file__).parent / 'static' / 'styles.css', media_type='text/css', headers={'Cache-Control': 'no-store'})
+
+
+@app.get('/favicon.ico')
+def favicon():
+    return FileResponse(Path(__file__).parent / 'static' / 'favicon.ico', media_type='image/x-icon', headers={'Cache-Control': 'max-age=86400'})
+
+
+@app.get('/ui.js')
+def ui_script():
+    return FileResponse(Path(__file__).parent / 'static' / 'ui.js', media_type='text/javascript', headers={'Cache-Control': 'no-store'})
+
+
+def check_registration_access(request):
+    if request.headers.get('X-AD-Review') != '1':
+        raise HTTPException(403, 'Inicia el registro desde la pantalla de revision.')
+    origin = request.headers.get('origin')
+    if origin and origin != str(request.base_url).rstrip('/'):
+        raise HTTPException(403, 'Origen no permitido.')
+
+
+@app.get('/api/registro-ad/catalogo')
+def registration_catalog(request: Request):
+    check_registration_access(request)
+    try:
+        data = ad_registration.registration_directory()
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return Response(json.dumps(data, ensure_ascii=False), media_type='application/json', headers={'Cache-Control': 'no-store'})
+
+
+@app.post('/api/registro-ad/{action}')
+async def registration_action(action: str, request: Request):
+    check_registration_access(request)
+    if action not in ('comprobar', 'crear', 'crear-generado', 'automatico'):
+        raise HTTPException(404)
+    if request.headers.get('content-type', '').split(';')[0] != 'application/json':
+        raise HTTPException(415, 'Se requiere JSON.')
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > 16384:
+            raise HTTPException(413, 'Solicitud demasiado grande.')
+    try:
+        model = {'comprobar': ad_registration.AccountDraft, 'crear': ad_registration.Confirmation,
+                 'crear-generado': ad_registration.GeneratedConfirmation, 'automatico': ad_registration.AutomaticAccount}[action]
+        data = model.model_validate_json(body)
+        fn = {'comprobar': ad_registration.prepare, 'crear': ad_registration.create,
+              'crear-generado': ad_registration.start_generated, 'automatico': ad_registration.start_automatic}[action]
+        result = await run_in_threadpool(fn, data)
+    except ValidationError:
+        # Do not echo submitted values: the create request includes a password.
+        raise HTTPException(422, 'Revisa los campos obligatorios y el formato del usuario (maximo 20 caracteres).')
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return Response(json.dumps(result, ensure_ascii=False), media_type='application/json', headers={'Cache-Control': 'no-store'})
+
+
+@app.post('/api/dni')
+async def dni_lookup(request: Request):
+    try:
+        body = await request.json()
+        dni = body.get('dni', '')
+        result = await run_in_threadpool(fetch_dni_data, dni)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(503, 'No se pudo consultar el DNI en los servicios externos.') from exc
+    return Response(json.dumps(result, ensure_ascii=False), media_type='application/json', headers={'Cache-Control': 'no-store'})
+
+
+@app.get('/api/registro-ad/progreso/{job_id}')
+def registration_progress(job_id: str, request: Request):
+    check_registration_access(request)
+    try:
+        result = ad_registration.job_status(job_id)
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    return Response(json.dumps(result, ensure_ascii=False), media_type='application/json',
+                    headers={'Cache-Control': 'no-store'})
+
+
+@app.get('/api/directorio')
+def directory_list(request: Request):
+    try:
+        data = ad_registration.registration_directory()
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return Response(json.dumps(data, ensure_ascii=False), media_type='application/json',
+                    headers={'Cache-Control': 'no-store'})
 
 
 @app.post("/api/simular")
@@ -50,3 +165,19 @@ async def simulate(file: UploadFile = File(...)):
         raise HTTPException(422, str(exc)) from exc
     return Response(json.dumps(result, ensure_ascii=False, indent=2), media_type="application/json",
                     headers={"Cache-Control": "no-store"})
+
+
+class CiudadanoValidation(BaseModel):
+    dni: str = Field(pattern=r'^[0-9]{8}$')
+
+
+@app.post('/api/sgd/validar-ciudadano')
+def validate_sgd(data: CiudadanoValidation, request: Request):
+    check_registration_access(request)
+    events = []
+    try:
+        result = sgd_registration.validate_ciudadano(data.dni, events.append)
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    return Response(json.dumps(dict(result, events=events), ensure_ascii=False),
+                    media_type='application/json', headers={'Cache-Control': 'no-store'})

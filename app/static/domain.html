@@ -1,42 +1,254 @@
 <!doctype html>
 <html lang="es">
+
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Solicitudes → Usuarios de dominio</title>
-<style>
-body{font:16px/1.6 system-ui;background:#eef3f8;color:#142b43;margin:0;padding:36px 20px}main{max-width:1000px;margin:auto}section{background:white;padding:28px;border-radius:16px;margin:20px 0;box-shadow:0 5px 25px #17314b0b}h1{font-size:32px;margin:0}p{color:#475d72}button,a.download{background:#145abb;color:white;border:0;border-radius:8px;padding:12px 20px;font:inherit;cursor:pointer;text-decoration:none;display:inline-block}button:disabled{opacity:.5}input{display:block;margin:20px 0;max-width:100%}pre{background:#11263b;color:#e4f1ff;padding:20px;overflow:auto;max-height:500px;border-radius:10px;font-size:13px}table{border-collapse:collapse;width:100%}td,th{text-align:left;border-bottom:1px solid #d9e2eb;padding:12px;vertical-align:top}.scroll{overflow:auto}[hidden]{display:none!important}#status{white-space:pre-wrap}
-select,textarea{font:inherit;padding:12px;border:1px solid #aabccc;border-radius:8px;box-sizing:border-box;width:100%;margin:12px 0 24px}textarea{resize:vertical}#preview{display:block;max-width:100%;max-height:360px;margin:16px 0;border:1px solid #d9e2eb}label{font-weight:600}#services{border:1px solid #aabccc;border-radius:8px;margin:0 0 24px;padding:16px}#services label{display:inline-flex;align-items:center;gap:8px;margin-right:24px}#services input{margin:0}</style>
-<main><h1>Solicitudes → Usuarios de dominio</h1>
-<p>Prueba local · extracción de solicitudes y generación de JSON</p>
-<section><h2>Cargar solicitud</h2><p>Elige el tipo de entrada. El resultado será un JSON de simulación, sin crear cuentas ni escribir en la base de datos.</p>
+<title>CAFED · Gestión de accesos</title>
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/styles.css">
+<script src="/ui.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<main><div class="eyebrow">CAFED · GESTIÓN DE ACCESOS</div><h1>Gestión de accesos</h1>
+<p>Extrae la solicitud, confirma los datos y sigue el registro en un solo lugar.</p>
+<p class="directory-link" style="display: flex; gap: 1.5rem;"><a href="/directorio">Directorio institucional ↗</a> <a href="/historial">Historial local ↗</a></p>
+<section class="request-entry"><div class="entry-heading"><span class="eyebrow">NUEVA SOLICITUD</span><h2>Configura el acceso de una persona</h2><p>Elige cómo ingresar sus datos y qué servicios necesita.</p></div>
 <form id="form">
-<label for="type">Tipo de entrada</label>
-<select id="type"><option value="pdf">PDF</option><option value="image">Imagen / captura</option><option value="text">Texto plano</option></select>
-<div id="pdf-panel"><label for="pdf">Documento PDF</label><p>Máximo 20 MB y 50 páginas.</p><input id="pdf" type="file" accept="application/pdf,.pdf" required></div>
-<div id="image-panel" hidden><label for="image">Imagen PNG o JPG</label><p>Selecciona una imagen o pégala con Ctrl+V. Incluye el bloque DE y la tabla completa. Requiere OCR en español. Máximo 20 MB.</p><input id="image" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" disabled><img id="preview" alt="Vista previa de la captura seleccionada" hidden></div>
-<div id="text-panel" hidden><label for="text">Texto de la solicitud</label><p>Pega un mensaje de WhatsApp con DNI, nombre completo, usuario y, opcionalmente, área en la cuarta línea, o una tabla. Los mensajes repetidos se consolidan. Selecciona qué servicios crear para las personas del texto.</p><textarea id="text" rows="12" maxlength="100000" disabled placeholder="40461585
-FIDEL CENTENO UTANI
-FCENTENO
-logistica"></textarea><fieldset id="services"><legend>Servicios a crear</legend><label><input type="checkbox" value="dominio" name="service"> Dominio</label><label><input type="checkbox" value="sgd" name="service"> SGD</label><p>Marca uno o ambos. Tu selección determina los inserts simulados, aunque el mensaje mencione otros servicios.</p></fieldset></div>
-<button id="submit">Extraer y construir JSON</button></form><p id="status" role="status" aria-live="polite"></p></section>
-<section id="result" hidden><h2>Resultado de la extracción</h2><p id="summary"></p><div class="scroll"><table><thead><tr><th>Apellidos y nombres</th><th>Área / grupo</th><th>Estado</th></tr></thead><tbody id="rows"></tbody></table></div><p>Revisa los datos contra el documento antes de utilizar esta simulación.</p><a class="download" id="download" download="usuarios-dominio.json">Descargar JSON</a><details><summary>Ver JSON completo</summary><pre id="json"></pre></details></section></main>
+<div class="step-heading"><span>01</span><div><h3>Origen de la información</h3><p>Selecciona el formato de tu solicitud.</p></div></div><label for="type" hidden>Tipo de entrada</label>
+<select id="type" hidden><option value="" selected>Selecciona un tipo</option><option value="pdf">PDF</option><option value="image">Imagen / captura</option><option value="text">Ingreso Manual</option></select><div id="entry-options" class="choice-grid" role="group" aria-label="Tipo de entrada"></div>
+<div id="pdf-panel" class="upload-zone"><label for="pdf">Documento PDF</label><p>Máximo 20 MB y 50 páginas.</p><div class="drop-target" data-input="pdf" tabindex="0" role="button"><strong>Arrastra tu PDF aquí</strong><span>o haz clic para seleccionar un archivo</span></div><input id="pdf" type="file" accept="application/pdf,.pdf" required></div>
+<div id="image-panel" class="upload-zone" hidden><label for="image">Imagen PNG o JPG</label><p>Selecciona una imagen o pégala con Ctrl+V. Incluye el bloque DE y la tabla completa. Requiere OCR en español. Máximo 20 MB.</p><div class="drop-target" data-input="image" tabindex="0" role="button"><strong>Arrastra tu imagen aquí</strong><span>o haz clic para seleccionar un archivo</span></div><input id="image" type="file" accept="image/png,image/jpeg,.png,.jpg,.jpeg" disabled><img id="preview" alt="Vista previa de la captura seleccionada" hidden></div>
+<div id="text-panel" class="person-entry" hidden><div id="structured-panel" hidden><label for="text-entry-mode" hidden>Modo de registro</label><select id="text-entry-mode" hidden><option value="automatic">Generar automático</option><option value="manual">Generar manual</option></select><div id="mode-options" class="mode-options" role="group" aria-label="Modo de registro"></div><div id="automatic-fields"><p>Consulta el DNI para completar los nombres y apellidos. Luego indica el área.</p><label for="automatic-dni">DNI</label><input id="automatic-dni" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" minlength="8" placeholder="8 dígitos"></div><div id="manual-fields"><p>Completa los datos. El DNI debe tener exactamente 8 dígitos.</p><div class="person-fields"><div><label for="text-given">Nombres</label><input id="text-given" maxlength="64" placeholder="Ej. Eduardo Rufino"></div><div><label for="text-surnames">Apellidos</label><input id="text-surnames" maxlength="80" placeholder="Ej. Orozco Merino"></div><div><label for="text-dni">DNI</label><input id="text-dni" inputmode="numeric" pattern="[0-9]{8}" maxlength="8" minlength="8" placeholder="8 dígitos"></div><div><label for="text-area">Área</label><select id="text-area" required><option value="" selected disabled>Selecciona un área</option><option value="Infraestructura">Infraestructura</option><option value="Tecnologías">Tecnologías (OTIC)</option><option value="Control Institucional">Control Institucional (OCI)</option><option value="Gerencia General">Gerencia General</option><option value="Planificación">Planificación</option><option value="Asesoría Jurídica">Asesoría Jurídica</option><option value="Administración">Administración</option><option value="Recursos Humanos">Recursos Humanos</option><option value="Logística">Logística</option><option value="Contabilidad">Contabilidad</option><option value="Tesorería">Tesorería</option><option value="Desarrollo Educativo">Desarrollo Educativo</option><option value="Becas">Becas</option><option value="Archivo">Archivo</option></select></div></div></div></div></div>
+<fieldset id="services"><legend><span class="step-number">02</span> Servicios solicitados</legend><p>Selecciona uno o ambos servicios para esta persona.</p><div class="service-grid">
+<label class="service-card"><input type="checkbox" value="dominio" name="service"><span class="service-symbol" aria-hidden="true">▦</span><span class="service-copy"><strong>Dominio</strong><span>Cuenta de acceso institucional</span><small>Creación disponible</small></span><span class="service-check" aria-hidden="true">✓</span></label>
+<label class="service-card"><input type="checkbox" value="sgd" name="service"><span class="service-symbol" aria-hidden="true">▤</span><span class="service-copy"><strong>SGD</strong><span>Sistema de Gestión Documental</span><small>Validación de ciudadano</small></span><span class="service-check" aria-hidden="true">✓</span></label></div></fieldset>
+<div class="entry-footer"><p id="entry-hint" role="status">Selecciona un archivo para continuar.</p><div class="button-group"><button id="submit" class="btn-primary">Extraer información para verificar</button><button type="button" id="clear-form" class="btn-secondary">Limpiar formulario</button></div></div></form></section>
+<div id="result" hidden></div>
+</main>
 <script>
-const form=document.querySelector('#form'),status=document.querySelector('#status'),button=document.querySelector('#submit');let downloadUrl;
-const type=document.querySelector('#type');let previewUrl;
-function resetResult(){document.querySelector('#result').hidden=true;status.textContent=''}
-function showPreview(){const file=document.querySelector('#image').files[0],preview=document.querySelector('#preview');if(previewUrl)URL.revokeObjectURL(previewUrl);preview.hidden=!file;if(file){previewUrl=URL.createObjectURL(file);preview.src=previewUrl}}
-type.addEventListener('change',()=>{for(const [mode,id] of [['pdf','pdf'],['image','image'],['text','text']]){const active=type.value===mode;document.querySelector('#'+mode+'-panel').hidden=!active;const input=document.querySelector('#'+id);input.disabled=!active;input.required=active}resetResult()});
-document.querySelector('#services').addEventListener('change',resetResult);
-for(const id of ['pdf','image','text'])document.querySelector('#'+id).addEventListener('input',resetResult);
-document.querySelector('#image').addEventListener('change',showPreview);
-document.addEventListener('paste',event=>{if(type.value!=='image'||button.disabled)return;const item=[...(event.clipboardData?.items||[])].find(item=>['image/png','image/jpeg'].includes(item.type));if(!item)return;const file=item.getAsFile();if(!file)return;const transfer=new DataTransfer();transfer.items.add(file);document.querySelector('#image').files=transfer.files;resetResult();showPreview();status.textContent='Captura pegada. Pulsa Extraer y construir JSON.';event.preventDefault()});
-form.addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;type.disabled=true;document.querySelector('#result').hidden=true;status.textContent='Procesando solicitud…';
-const mode=type.value;const selected=[...document.querySelectorAll('[name=service]:checked')].map(box=>box.value);if(mode==='text'&&!selected.length){status.textContent='Selecciona Dominio, SGD o ambos.';button.disabled=false;type.disabled=false;return}document.querySelector('#services').disabled=true;const input=document.querySelector('#'+mode);input.disabled=true;
-try{let response;if(mode==='text'){response=await fetch('/api/simular-texto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto:input.value,servicios:selected})})}else{const data=new FormData();data.append('file',input.files[0]);response=await fetch('/api/simular',{method:'POST',body:data})}
-const result=await response.json();if(!response.ok)throw new Error(typeof result.detail==='string'?result.detail:'No se pudo procesar el documento.');
-const json=JSON.stringify(result,null,2);document.querySelector('#json').textContent=json;const rows=document.querySelector('#rows');rows.replaceChildren();for(const user of result.usuarios){const row=document.createElement('tr');for(const value of [user.nombre_completo_original,(user.area||'Área no reconocida')+' / '+(user.grupo_ad||'Grupo por configurar'),(user.servicios_a_crear?.join(' + ')||'Dominio')+' · '+user.estado+'\n'+user.observaciones.join('\n')]){const cell=document.createElement('td');cell.textContent=value;row.appendChild(cell)}rows.appendChild(row)}
-document.querySelector('#summary').textContent=`${result.usuarios.length} usuarios · ${result.excluidos.length} excluidos · ${result.requiere_revision?'Requiere revisión':'Listo para simulación'}`;
-if(downloadUrl)URL.revokeObjectURL(downloadUrl);downloadUrl=URL.createObjectURL(new Blob([json],{type:'application/json'}));document.querySelector('#download').href=downloadUrl;document.querySelector('#result').hidden=false;status.textContent=result.advertencias.join('\n')||'Extracción terminada. Ya puedes descargar el archivo JSON.';
-}catch(error){status.textContent=error.message}finally{button.disabled=false;type.disabled=false;input.disabled=false;document.querySelector('#services').disabled=false}});
-</script></html>
+const form = document.getElementById('form'), type = document.getElementById('type');
+(() => {
+  const $ = id => document.getElementById(id);
+  const mode = $('text-entry-mode'), submit = $('submit');
+  let busy = false, lookupVersion = 0, confirmedDni = '', previewUrl;
+  let extracted = null, extractionError = '';
+  const documentStatus = document.createElement('p'); documentStatus.setAttribute('role','status');
+  $('services').before(documentStatus);
+  const personLabel = document.createElement('label'); personLabel.htmlFor = 'document-person'; personLabel.textContent = 'Persona de la solicitud';
+  const documentPerson = document.createElement('select'); documentPerson.id = 'document-person';
+  $('services').querySelector('p').after(personLabel, documentPerson);
+  const retryExtraction = document.createElement('button'); retryExtraction.type = 'button'; retryExtraction.textContent = 'Reintentar lectura'; retryExtraction.hidden = true;
+  documentStatus.after(retryExtraction);
+  retryExtraction.onclick = () => extractFile(type.value);
+  function syncServices() {
+    const services = extracted?.usuarios[Number(documentPerson.value)]?.servicios_a_crear || [];
+    for (const box of form.querySelectorAll('[name=service]')) box.checked = services.includes(box.value);
+  }
+  documentPerson.onchange = () => { syncServices(); refresh(); };
+  function resetDocument() {
+    extracted = null; extractionError = ''; documentPerson.replaceChildren();
+    for (const box of form.querySelectorAll('[name=service]')) box.checked = false;
+  }
+  async function extractFile(key) {
+    if (busy) return;
+    resetDocument(); clearResult();
+    const file = $(key)?.files?.[0]; if (!file) { refresh(); return; }
+    busy = true; refresh();
+    try {
+      const data = new FormData(); data.append('file', file);
+      const response = await fetch('/api/simular', {method:'POST', body:data});
+      const result = await response.json();
+      if (!response.ok) throw new Error(typeof result.detail === 'string' ? result.detail : 'No se pudo leer el documento.');
+      if (!result.usuarios?.length) throw new Error('No se encontraron personas con servicios reconocidos. Prueba otra imagen o ingresa los datos manualmente.');
+      extracted = result;
+      result.usuarios.forEach((user, i) => {
+        user.servicios_a_crear = user.servicios_a_crear || [];
+        documentPerson.add(new Option(`${user.nombre_completo_original} · DNI ${user.dni || 'sin identificar'}`, i));
+      });
+      syncServices();
+    } catch (error) { extractionError = error.message; }
+    finally { busy = false; refresh(); }
+  }
+  const clearResult = () => window.hideAdRegistration?.();
+  function choices(container, control, options) {
+    for (const [value, icon, title, description] of options) {
+      const button = document.createElement('button'); button.type = 'button'; button.className = 'entry-choice'; button.dataset.value = value;
+      const symbol = document.createElement('span'); symbol.className = 'choice-icon'; symbol.textContent = icon; symbol.setAttribute('aria-hidden','true');
+      const heading = document.createElement('strong'); heading.textContent = title;
+      const detail = document.createElement('span'); detail.className = 'choice-detail'; detail.textContent = description;
+      button.append(symbol,heading,detail); button.onclick = () => { control.value = value; control.dispatchEvent(new Event('change')); };
+      $(container).append(button);
+    }
+  }
+  choices('entry-options', type, [['pdf','▤','Documento PDF','Extrae los datos de una solicitud'],['image','▧','Imagen o captura','Carga una imagen o pega con Ctrl+V'],['text','Aa','Ingreso Manual','Consulta el DNI o completa los datos']]);
+  choices('mode-options', mode, [['automatic','⌕','Consultar por DNI','Completa los datos automáticamente'],['manual','✎','Ingreso manual','Escribe los datos de la persona']]);
+  const lookup = document.createElement('button'); lookup.type='button'; lookup.id='lookup-dni'; lookup.className='btn-primary'; lookup.textContent='Consultar DNI';
+  $('automatic-dni').after(lookup);
+  const person = document.createElement('div'); person.id='automatic-person'; person.className='person-fields'; person.hidden=true;
+  for (const [id,label,readonly] of [['automatic-given','Nombres',true],['automatic-surnames','Apellidos',true],['automatic-area','Área',false]]) {
+    const wrapper=document.createElement('div'), caption=document.createElement('label');
+    caption.htmlFor=id; caption.textContent=label;
+    let input;
+    if (readonly) {
+      input=document.createElement('input'); input.id=id; input.readOnly=true; input.maxLength=128;
+    } else {
+      input=document.createElement('select'); input.id=id;
+      input.innerHTML='<option value="" selected disabled>Selecciona un área</option><option value="Infraestructura">Infraestructura</option><option value="Tecnologías">Tecnologías (OTIC)</option><option value="Control Institucional">Control Institucional (OCI)</option><option value="Gerencia General">Gerencia General</option><option value="Planificación">Planificación</option><option value="Asesoría Jurídica">Asesoría Jurídica</option><option value="Administración">Administración</option><option value="Recursos Humanos">Recursos Humanos</option><option value="Logística">Logística</option><option value="Contabilidad">Contabilidad</option><option value="Tesorería">Tesorería</option><option value="Desarrollo Educativo">Desarrollo Educativo</option><option value="Becas">Becas</option><option value="Archivo">Archivo</option>';
+    }
+    wrapper.append(caption,input); person.append(wrapper);
+  }
+  $('automatic-fields').append(person);
+  const lookupStatus=document.createElement('p'); lookupStatus.id='lookup-status'; lookupStatus.setAttribute('role','status'); lookup.after(lookupStatus);
+  const manualDni = $('text-dni'); manualDni.parentElement.parentElement.prepend(manualDni.parentElement);
+  function invalidateLookup() {
+    lookupVersion++; confirmedDni=''; person.hidden=true;
+    for (const id of ['automatic-given','automatic-surnames','automatic-area']) $(id).value='';
+    lookupStatus.textContent=''; lookup.disabled=false; lookup.textContent='Consultar DNI';
+  }
+  function refresh() {
+    const text=type.value==='text', auto=mode.value==='automatic';
+    for (const key of ['pdf','image','text']) $(key+'-panel').hidden=type.value!==key;
+    $('structured-panel').hidden=!text; $('automatic-fields').hidden=!auto; $('manual-fields').hidden=auto;
+    for (const id of ['text-dni','text-given','text-surnames','text-area']) { $(id).disabled=busy||!text||auto; $(id).required=text&&!auto; }
+    for (const id of ['automatic-dni','automatic-area']) $(id).disabled=busy||!text||!auto;
+    for (const key of ['pdf','image']) { $(key).disabled=busy||type.value!==key; $(key).required=type.value===key; }
+    for (const [container,control] of [['entry-options',type],['mode-options',mode]]) for (const option of $(container).children) {
+      option.setAttribute('aria-pressed',String(control.value===option.dataset.value)); option.disabled=busy;
+    }
+    $('services').disabled=busy; $('clear-form').disabled=busy;
+    $('services').hidden = !text && !extracted;
+    personLabel.hidden = documentPerson.hidden = text || !extracted || extracted.usuarios.length < 2;
+    documentPerson.disabled = busy;
+    documentStatus.hidden = text || !type.value;
+    documentStatus.textContent = busy && !text ? 'Leyendo el documento y detectando los servicios…' : extractionError || (extracted ? 'Lectura completada. Servicios detectados por persona; puedes ajustar las tarjetas antes de continuar.' : 'Al cargar un archivo se leerá automáticamente.');
+    retryExtraction.hidden = text || !extractionError; retryExtraction.disabled = busy;
+    const selected=[...form.querySelectorAll('[name=service]:checked')];
+    let ready;
+    if (!text) ready=Boolean($(type.value)?.files?.length);
+    else if (auto) ready=confirmedDni===$('automatic-dni').value && /^\d{8}$/.test(confirmedDni) && Boolean($('automatic-area').value.trim());
+    else ready=/^\d{8}$/.test(manualDni.value) && ['text-given','text-surnames','text-area'].every(id=>$(id).value.trim());
+    submit.hidden = !text && !extracted;
+    submit.disabled=busy||!ready||(text ? !selected.length : !extracted || extracted.usuarios.some(user => !user.servicios_a_crear.length));
+    $('entry-hint').textContent=busy?'Procesando la solicitud…':!selected.length?'Selecciona al menos un servicio.':!ready?(text?(auto?'Consulta el DNI y completa el área.':'Completa el DNI, nombres, apellidos y área.'):'Selecciona un archivo para continuar.'):'Todo listo. Revisa la información en el siguiente paso.';
+    submit.textContent=busy?'Procesando…':'Extraer información para verificar';
+    if (!text) {
+      submit.textContent = 'Continuar con los servicios seleccionados';
+      $('entry-hint').textContent = extracted ? (submit.disabled ? 'Selecciona los servicios de cada persona para continuar.' : 'Servicios listos. Puedes continuar con la revisión.') : 'La lectura comienza automáticamente al cargar el documento.';
+    }
+    if (!type.value) $('entry-hint').textContent = 'Selecciona el tipo de entrada para comenzar.';
+    for (const zone of document.querySelectorAll('.drop-target')) {
+      const input = $(zone.dataset.input), disabled = input.disabled;
+      zone.setAttribute('aria-disabled', String(disabled)); zone.tabIndex = disabled ? -1 : 0;
+      zone.querySelector('strong').textContent = input.files[0]?.name || (input.id === 'pdf' ? 'Arrastra tu PDF aquí' : 'Arrastra tu imagen aquí');
+      zone.querySelector('span').textContent = input.files.length ? 'Archivo listo · Haz clic o arrastra otro para reemplazarlo' : 'o haz clic para seleccionar un archivo';
+    }
+  }
+  function preview() {
+    const file=$('image').files[0]; if(previewUrl) URL.revokeObjectURL(previewUrl);
+    $('preview').hidden=!file; if(file) {$('preview').src=previewUrl=URL.createObjectURL(file);} else $('preview').removeAttribute('src');
+  }
+  type.onchange=()=>{clearResult();resetDocument();refresh();if(type.value==='pdf'||type.value==='image')extractFile(type.value);}; mode.onchange=()=>{clearResult();refresh();};
+  $('services').onchange=()=>{
+    if (type.value !== 'text' && extracted) extracted.usuarios[Number(documentPerson.value)].servicios_a_crear = [...form.querySelectorAll('[name=service]:checked')].map(box=>box.value);
+    clearResult();refresh();
+  };
+  for (const id of ['text-dni','automatic-dni']) {
+    $(id).addEventListener('input',()=>{
+      $(id).value=$(id).value.replace(/\D/g,'').slice(0,8);
+      if(id==='automatic-dni') invalidateLookup();
+      else if(!manualDni.value) for(const field of ['text-given','text-surnames','text-area']) $(field).value='';
+      clearResult(); refresh();
+    });
+  }
+  for(const id of ['text-given','text-surnames']) $(id).addEventListener('input',refresh);
+  for(const id of ['text-area','automatic-area']) $(id).addEventListener('change',refresh);
+  function fileError(key, files) {
+    if (files.length !== 1) return 'Selecciona un solo archivo por solicitud.';
+    const file = files[0];
+    const allowed = key === 'pdf' ? /\.pdf$/i.test(file.name) && (!file.type || file.type === 'application/pdf') : /\.(png|jpe?g)$/i.test(file.name) && (!file.type || ['image/png','image/jpeg'].includes(file.type));
+    if (!allowed) return key === 'pdf' ? 'Esta zona acepta únicamente archivos PDF.' : 'Esta zona acepta únicamente imágenes PNG o JPG.';
+    if (!file.size) return 'El archivo está vacío. Selecciona otro archivo.';
+    if (file.size > 20 * 1024 * 1024) return 'El archivo supera el límite de 20 MB.';
+    return '';
+  }
+  function acceptFiles(key, files) {
+    if ($(key).disabled) return;
+    const error = fileError(key, files);
+    if (error) { showToast(error, 'error'); return; }
+    const transfer = new DataTransfer(); transfer.items.add(files[0]); $(key).files = transfer.files;
+    if (key === 'image') preview(); extractFile(key);
+  }
+  for(const key of ['pdf','image']) $(key).addEventListener('change',()=>{
+    if ($(key).files.length) {
+      const error = fileError(key, $(key).files);
+      if (error) { $(key).value = ''; showToast(error, 'error'); }
+    }
+    if(key==='image')preview();extractFile(key);
+  });
+  for (const zone of document.querySelectorAll('.drop-target')) {
+    const key = zone.dataset.input;
+    zone.addEventListener('click', () => { if (!$(key).disabled) $(key).click(); });
+    zone.addEventListener('keydown', event => {
+      if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); if (!$(key).disabled) $(key).click(); }
+    });
+    zone.addEventListener('dragover', event => {
+      event.preventDefault();
+      if (!$(key).disabled) { event.dataTransfer.dropEffect = 'copy'; zone.classList.add('is-dragging'); }
+    });
+    zone.addEventListener('dragleave', event => { if (!zone.contains(event.relatedTarget)) zone.classList.remove('is-dragging'); });
+    zone.addEventListener('drop', event => {
+      event.preventDefault(); zone.classList.remove('is-dragging'); acceptFiles(key, event.dataTransfer.files);
+    });
+  }
+  // Evita que un archivo soltado fuera de la zona reemplace la página.
+  for (const name of ['dragover', 'drop']) document.addEventListener(name, event => {
+    if ([...(event.dataTransfer?.types || [])].includes('Files')) event.preventDefault();
+  });
+  lookup.onclick=async()=>{
+    const dni=$('automatic-dni').value;
+    if(!/^\d{8}$/.test(dni)){lookupStatus.textContent='Ingresa un DNI de 8 dígitos.';return;}
+    invalidateLookup(); const version=lookupVersion; lookup.disabled=true; lookup.textContent='Consultando…'; lookupStatus.textContent='Buscando los datos de la persona…'; refresh();
+    try {
+      const response=await fetch('/api/dni',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({dni})}),data=await response.json();
+      if(version!==lookupVersion)return;
+      if(!response.ok||!data.encontrado)throw new Error(data.detail||'No se encontró el DNI. Revisa el número e inténtalo nuevamente.');
+      confirmedDni=dni; $('automatic-given').value=data.nombres; $('automatic-surnames').value=data.apellidos; person.hidden=false;
+      lookupStatus.textContent='Datos encontrados. Completa el área para continuar.'; $('automatic-area').focus();
+    }catch(error){if(version===lookupVersion)lookupStatus.textContent=error.message;}
+    finally{if(version===lookupVersion){lookup.disabled=false;lookup.textContent='Consultar DNI';refresh();}}
+  };
+  $('clear-form').onclick=()=>{form.reset();resetDocument();invalidateLookup();preview();clearResult();refresh();};
+  document.addEventListener('paste',event=>{
+    if(type.value!=='image'||busy)return;
+    const item=[...(event.clipboardData?.items||[])].find(item=>['image/png','image/jpeg'].includes(item.type));if(!item)return;
+    const file=item.getAsFile(); if(file)acceptFiles('image',[file]); event.preventDefault();
+  });
+  form.onsubmit=async event=>{
+    event.preventDefault(); if(submit.disabled||busy)return;
+    if (type.value !== 'text') {
+      if (extracted) window.startAdRegistration?.(structuredClone(extracted));
+      return;
+    }
+    const selected=[...form.querySelectorAll('[name=service]:checked')].map(box=>box.value);
+    busy=true;refresh();
+    try {
+      let response;
+      if(type.value==='text') {
+        const auto=mode.value==='automatic', dni=$(auto?'automatic-dni':'text-dni').value;
+        const given=$(auto?'automatic-given':'text-given').value.trim(), surnames=$(auto?'automatic-surnames':'text-surnames').value.trim(), area=$(auto?'automatic-area':'text-area').value.trim();
+        response=await fetch('/api/simular-texto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto:`APELLIDOS Y NOMBRES | DNI | AREA\n${surnames} ${given} | ${dni} | ${area}`,servicios:selected})});
+      } else {
+        const data=new FormData();data.append('file',$(type.value).files[0]);response=await fetch('/api/simular',{method:'POST',body:data});
+      }
+      const result=await response.json();if(!response.ok)throw new Error(typeof result.detail==='string'?result.detail:'No se pudo procesar la solicitud.');
+      if(!result.usuarios?.length)throw new Error('No se encontraron personas en la solicitud. Revisa el archivo o ingresa los datos manualmente.');
+      if (type.value === 'text') for(const user of result.usuarios) user.servicios_a_crear=selected;
+      window.startAdRegistration?.(result);
+    } catch(error) {showToast(error.message,'error');}
+    finally {busy=false;refresh();}
+  };
+  refresh();
+})();
+
+</script><script src="/registro-ad.js?v=20260911-entry-5"></script></html>
+
 

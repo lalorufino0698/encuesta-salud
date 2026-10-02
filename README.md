@@ -2,7 +2,7 @@
 
 ## Nuevo flujo: solicitudes de usuarios de dominio
 
-Disponible una prueba independiente **PDF → JSON**, sin MySQL ni conexión a Active Directory. Ejecuta `start-domain.ps1` para cargar el PDF y descargar el INSERT simulado. Instalación, reglas y configuración de grupos en [docs/DOMINIO.md](docs/DOMINIO.md).
+Disponible un flujo independiente **PDF, imagen o texto → revision → alta en AD**. Ejecuta `start-domain.ps1` para extraer y descargar el JSON simulado. Opcionalmente, carga los grupos y OUs reales, revisa los datos y confirma el alta con tu sesion de dominio. La extraccion sola no crea cuentas; el boton **Crear usuario en Active Directory** si escribe en AD. Instalacion, permisos y tratamiento de fallos parciales en [docs/DOMINIO.md](docs/DOMINIO.md).
 
 Aplicación web local para cargar cuestionarios PDF de factores de riesgo psicosocial intralaboral **Forma A**, detectar las respuestas marcadas y almacenarlas de forma estructurada en MySQL.
 

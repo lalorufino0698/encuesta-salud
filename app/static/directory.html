@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Directorio de Active Directory</title>
+<link rel="icon" href="/favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="/styles.css">
+<script src="/ui.js"></script>
+<main>
+<div class="view-navigation"><a href="/" class="btn btn-secondary">← Volver a solicitudes</a></div>
+<h1>Directorio de Active Directory</h1>
+<p>Grupos del contenedor «grupos» y unidades organizativas de CAFED, incluidas sus subunidades y la OU raíz. Es el mismo catálogo utilizado para registrar usuarios. Solo lectura.</p>
+<div class="button-group"><button id="load" class="btn-primary">Consultar directorio</button></div>
+<div id="results" hidden>
+<label for="filter">Buscar por nombre, cuenta, descripción o ruta</label>
+<input id="filter" type="search" placeholder="Escribe para filtrar ambos listados">
+<section><h2 id="group-count">Grupos</h2><div class="scroll"><table><thead><tr><th>Nombre</th><th>Cuenta</th><th>Descripción</th><th>Ruta (DN)</th></tr></thead><tbody id="groups"></tbody></table></div></section>
+<section><h2 id="ou-count">Unidades organizativas</h2><div class="scroll"><table><thead><tr><th>Nombre</th><th>Descripción</th><th>Ruta (DN)</th></tr></thead><tbody id="ous"></tbody></table></div></section>
+</div></main>
+<script>
+const load=document.querySelector('#load'),results=document.querySelector('#results'),filter=document.querySelector('#filter');let directory;
+const normalize=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+function render(){const query=normalize(filter.value);for(const [key,bodyId,countId,title,fields] of [['grupos','groups','group-count','Grupos',['nombre','cuenta','descripcion','dn']],['unidades_organizativas','ous','ou-count','Unidades organizativas',['nombre','descripcion','dn']]]){const all=directory[key],items=all.filter(item=>fields.some(field=>normalize(item[field]).includes(query))),body=document.getElementById(bodyId);body.replaceChildren();document.getElementById(countId).textContent=`${title} (${items.length} de ${all.length})`;for(const item of items){const row=document.createElement('tr');for(const field of fields){const cell=document.createElement('td');cell.textContent=item[field]||'—';row.appendChild(cell)}body.appendChild(row)}if(!items.length){const row=document.createElement('tr'),cell=document.createElement('td');cell.colSpan=fields.length;cell.textContent='Sin resultados.';row.appendChild(cell);body.appendChild(row)}}}
+filter.addEventListener('input',render);
+load.addEventListener('click',async()=>{load.disabled=true;results.hidden=true;showToast('Consultando Active Directory…', 'info');try{const response=await fetch('/api/directorio',{cache:'no-store'}),data=await response.json();if(!response.ok)throw new Error(data.detail||'No se pudo consultar el directorio.');directory=data;render();results.hidden=false;showToast(`${data.servidor} · Sesión: ${data.identidad} · Consulta completada a las ${new Date().toLocaleTimeString()}`, 'success');load.textContent='Actualizar directorio'}catch(error){showToast(error.message, 'error')}finally{load.disabled=false}});
+</script></html>

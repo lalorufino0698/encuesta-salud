@@ -16,3 +16,7 @@ exclude = '''
 include = '\.pyi?$'
 line-length = 88
 target-version = ['py37']
+
+[tool.pyright]
+include = ["app", "src", "."]
+extraPaths = ["."]

@@ -44,20 +44,20 @@ def aligned_table_rows(table):
     several detector columns, so text and header indexes no longer coincide.
     Keep empty cells in place rather than compacting each row independently.
     """
-    rows = table.extract()
+    rows = table.extract() or []
     header_index = next((i for i, row in enumerate(rows) if any(
-        "APELLIDOS" in normalized(c) and "NOMBRES" in normalized(c)
+        "APELLIDOS" in normalized(str(c)) and "NOMBRES" in normalized(str(c))
         for c in row)), None)
     if header_index is None:
         return rows
     header_cells = table.rows[header_index].cells
-    columns = [(clean(value), (cell[0] + cell[2]) / 2)
+    columns = [(clean(str(value)), (cell[0] + cell[2]) / 2)
                for value, cell in zip(rows[header_index], header_cells)
-               if clean(value) and cell is not None]
-    aligned = [[label for label, _ in columns]]
+               if clean(str(value)) and cell is not None]
+    aligned: list[list[str]] = [[label for label, _ in columns]]
     for row, geometry in zip(rows[header_index + 1:], table.rows[header_index + 1:]):
         aligned.append([
-            next((value for value, cell in zip(row, geometry.cells)
+            next((str(value) for value, cell in zip(row, geometry.cells)
                   if cell is not None and cell[0] <= center < cell[2]), None)
             for _, center in columns
         ])
@@ -199,7 +199,7 @@ def extract_plain_text(text, groups=None, services=None):
             if identity in seen:
                 continue
             seen.add(identity)
-            rows.append([name, line, area])
+            rows.append([name, line, area or ""])
             accounts[(line, name)] = account
         if len(rows) > 1 and services is None:
             raise ValueError("Para un mensaje de WhatsApp seleccione Dominio, SGD o ambos.")
@@ -278,7 +278,7 @@ def extract_pdf(data: bytes, source="documento.pdf", groups=None):
                         ocr_document = fitz.open("pdf", raster.pdfocr_tobytes(language="spa", tessdata=tessdata))
                         page = ocr_document[0]
                     except Exception as exc:
-                        raise ValueError("La imagen o PDF escaneado requiere OCR: configure Tesseract con idioma español y TESSDATA_PREFIX.") from exc
+                        raise ValueError(f"La imagen o PDF escaneado requiere OCR: configure Tesseract con idioma español y TESSDATA_PREFIX. Detalle: {str(exc)}") from exc
                     from app.domain_image import image_tables
                     raster_tables = image_tables(raster, tessdata)
                 texts.append(page.get_text(sort=True))

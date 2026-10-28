@@ -79,34 +79,33 @@ def automatic_payload(draft, progress):
         raise ValueError('El usuario propuesto requiere correccion (maximo 20 caracteres).')
     progress('Usuario propuesto: ' + username + '. Consultando grupos y OUs de CAFED...')
     ou_mapping = {
-        "gie": "infraestructura",
-        "otic": "tecnologias",
-        "oci": "control institucional",
-        "gg": "gerencia general",
-        "gpp": "planificacion",
-        "gaj": "asesoria juridica",
-        "ga": "administracion",
-        "sgrh": "recursos humanos",
-        "sgl": "logistica",
-        "sgc": "contabilidad",
-        "sgt": "tesoreria",
-        "teso": "tesoreria",
-        "gde": "desarrollo educativo",
-        "be": "becas",
-        "ac": "archivo"
+        "infraestructura": ["gie", "infraestructura"],
+        "tecnologías (otic)": ["otic", "tecnologias"],
+        "control institucional (oci)": ["oci", "control institucional"],
+        "gerencia general": ["gg", "gerencia general"],
+        "planificación": ["gpp", "presupuesto", "planificacion"],
+        "asesoría jurídica": ["gaj", "asesoria juridica"],
+        "administración": ["ga", "administracion"],
+        "recursos humanos": ["sgrh", "recursos humanos"],
+        "logística": ["sgl", "logistica"],
+        "contabilidad": ["sgc", "contabilidad"],
+        "tesorería": ["sgt", "tesoreria", "teso"],
+        "desarrollo educativo": ["gde", "desarrollo educativo"],
+        "becas": ["be", "becas"],
+        "archivo": ["ac", "archivo"]
     }
-    mapped_term = ou_mapping.get(draft.area.strip().lower(), draft.area)
+    mapped_terms = ou_mapping.get(draft.area.strip().lower(), [draft.area])
     
     directory = registration_directory()
     group = (next((g for g in directory['grupos'] if g['dn'] == draft.group_dn), None)
-             if draft.group_dn else resolve_unique(directory['grupos'], [draft.area, mapped_term], ['nombre', 'cuenta']))
+             if draft.group_dn else resolve_unique(directory['grupos'], [draft.area] + mapped_terms, ['nombre', 'cuenta']))
     if not group:
         raise ValueError('No se encontro un grupo inequivoco para el area. Corrige el area o elige el grupo.')
     progress('Grupo identificado: ' + group['nombre'] + ' — ' + group.get('cuenta', ''))
     ous = [o for o in directory['unidades_organizativas'] if normalize(o['nombre']) != 'cafed']
     
     ou = (next((o for o in directory['unidades_organizativas'] if o['dn'] == draft.ou_dn), None)
-          if draft.ou_dn else resolve_unique(ous, [draft.area, mapped_term, group['nombre'], group.get('cuenta', '')], ['nombre']))
+          if draft.ou_dn else resolve_unique(ous, [draft.area] + mapped_terms + [group['nombre'], group.get('cuenta', '')], ['nombre']))
     if not ou:
         raise ValueError('No se encontro una OU inequivoca dentro de CAFED. Selecciona la OU para continuar.')
     progress('Unidad organizativa identificada: ' + ou['dn'])

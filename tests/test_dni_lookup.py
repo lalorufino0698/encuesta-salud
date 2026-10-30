@@ -15,6 +15,13 @@ class DniTests(unittest.TestCase):
         self.assertEqual(fetch_dni_data('12345678')['origen'], 'secundaria')
         self.assertEqual(call.call_count, 2)
 
+    @patch('app.dni_lookup._lookup_kmente', return_value={'encontrado': True, 'origen': 'terciaria', 'dni': '12345678', 'nombres': 'ANA', 'apellidos': 'PÉREZ LIMA', 'nombre_completo': 'ANA PÉREZ LIMA'})
+    @patch('app.dni_lookup._json', side_effect=[RuntimeError(), RuntimeError()])
+    def test_tertiary_fallback(self, call_json, call_kmente):
+        result = fetch_dni_data('12345678')
+        self.assertEqual(result['origen'], 'terciaria')
+        self.assertEqual(result['nombre_completo'], 'ANA PÉREZ LIMA')
+
     def test_invalid_dni(self):
         with self.assertRaises(ValueError):
             fetch_dni_data('1234ABCD')

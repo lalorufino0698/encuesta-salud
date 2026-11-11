@@ -1,6 +1,8 @@
 import os
 import pyodbc
 import hashlib
+import unicodedata
+import re
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
@@ -110,26 +112,91 @@ DEPENDENCIAS_SGD = {
     "RPT": "00023"
 }
 
+def normalize_area(value: str) -> str:
+    """Remueve tildes/diacríticos y normaliza a minúsculas."""
+    if not value:
+        return ""
+    normalized = ''.join(
+        c for c in unicodedata.normalize('NFD', value)
+        if not unicodedata.combining(c)
+    ).casefold()
+    return ' '.join(normalized.split())
+
+MAPPING_TEXT_SGD = [
+    # Subgerencias de Administración (evaluar antes de 'administracion' general)
+    ("recursos humanos", "00008"),
+    ("rrhh", "00008"),
+    ("sgrh", "00008"),
+    ("logistica", "00009"),
+    ("sgl", "00009"),
+    ("contabilidad", "00010"),
+    ("sgc", "00010"),
+    ("tesoreria", "00011"),
+    ("sgt", "00011"),
+
+    # Gerencia de Administración
+    ("administracion", "00007"),
+
+    # Tecnologías y Planificación (ambas bajo 00005)
+    ("tecnologia", "00005"),
+    ("otic", "00005"),
+    ("sistemas", "00005"),
+    ("informatica", "00005"),
+    ("planificacion", "00005"),
+    ("presupuesto", "00005"),
+    ("gpp", "00005"),
+
+    # Asesoría Jurídica
+    ("asesoria juridica", "00006"),
+    ("juridica", "00006"),
+    ("gaj", "00006"),
+
+    # Órgano de Control Institucional
+    ("control institucional", "00003"),
+    ("oci", "00003"),
+
+    # Gerencia General
+    ("gerencia general", "00004"),
+    ("gg", "00004"),
+
+    # Otras gerencias y órganos
+    ("desarrollo educativo", "00012"),
+    ("gde", "00012"),
+    ("infraestructura", "00013"),
+    ("gie", "00013"),
+    ("becas", "00014"),
+    ("archivo", "00015"),
+    ("mesa de partes", "00002"),
+    ("transparencia", "00023"),
+    ("integridad", "00021"),
+    ("consejo directivo", "00001"),
+    ("scd", "00001"),
+]
+
 def map_dependencia(area: str) -> str:
     """Mapea el nombre o sigla del área a su código de dependencia de 5 dígitos."""
-    if not area: return "00001"
-    area_upper = area.strip().upper()
+    if not area:
+        return "00001"
+
+    clean_area = area.strip()
+
+    # Si ya viene un código de 5 dígitos directamente (ej. "00007")
+    if re.fullmatch(r'\d{5}', clean_area):
+        return clean_area
+
+    # Sigla directa en mayúsculas (ej. "GA", "OTIC", "OCI")
+    area_upper = clean_area.upper()
     if area_upper in DEPENDENCIAS_SGD:
         return DEPENDENCIAS_SGD[area_upper]
-    
-    # Búsqueda por coincidencia de texto
-    area_lower = area.strip().lower()
-    mapping_text = {
-        "consejo directivo": "00001", "mesa de partes": "00002", "control institucional": "00003",
-        "gerencia general": "00004", "planificacion y presupuesto": "00005", "asesoria juridica": "00006",
-        "gerencia de administracion": "00007", "recursos humanos": "00008", "logistica": "00009",
-        "contabilidad": "00010", "tesoreria": "00011", "desarrollo educativo": "00012",
-        "infraestructura": "00013", "becas": "00014", "archivo": "00015", "transparencia": "00023",
-        "integridad": "00021"
-    }
-    for key, value in mapping_text.items():
-        if key in area_lower:
-            return value
+
+    # Normalización de texto (sin tildes, minúsculas)
+    norm_area = normalize_area(clean_area)
+
+    # Búsqueda por palabras clave priorizadas
+    for keyword, code in MAPPING_TEXT_SGD:
+        if keyword in norm_area:
+            return code
+
     return "00001" # Por defecto si no encuentra coincidencia
 
 def registrar_flujo_completo(dni: str, nombres: str, apellido_paterno: str, apellido_materno: str, area: str, username: str, password: str, progress) -> str:

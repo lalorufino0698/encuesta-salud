@@ -177,6 +177,7 @@ def prepare(draft):
     if not ou or not group:
         raise ValueError('Selecciona una OU de CAFED y un grupo valido del contenedor grupos.')
     payload = dict(username=draft.username, given_names=draft.given_names, surnames=surnames,
+                   paternal=draft.paternal, maternal=draft.maternal,
                    area=draft.area, ou_dn=ou['dn'], group_dn=group['dn'], upn_suffix=directory['upn_suffix'],
                    dni=draft.dni, servicios_a_crear=draft.servicios_a_crear)
     check = run_operation(dict(payload, action='validate'))
@@ -357,8 +358,8 @@ def start_generated(confirmation, automatic=None):
                 emp_code = registrar_flujo_completo(
                     dni=dni,
                     nombres=automatic.given_names if automatic else plan[1]['given_names'],
-                    apellido_paterno=automatic.paternal if automatic else (plan[1]['surnames'].split()[0] if plan[1]['surnames'] else ""),
-                    apellido_materno=automatic.maternal if automatic else (plan[1]['surnames'].split()[1] if len(plan[1]['surnames'].split())>1 else ""),
+                    apellido_paterno=automatic.paternal if automatic else plan[1].get('paternal', (plan[1]['surnames'].split()[0] if plan[1]['surnames'] else "")),
+                    apellido_materno=automatic.maternal if automatic else plan[1].get('maternal', (plan[1]['surnames'].split()[1] if len(plan[1]['surnames'].split())>1 else "")),
                     area=automatic.area if automatic else plan[1]['area'],
                     username=_username,
                     password=dni,

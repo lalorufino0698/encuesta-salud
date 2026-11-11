@@ -466,13 +466,105 @@
   };
   el('back').onclick = () => { if (!busy && !pending) { clearCredentials(); view('entry'); } };
   el('another').onclick = () => { if (!busy && !pending) { clearCredentials(); view('entry'); } };
+  function parseSpanishSurnames(surnamesStr) {
+    const tokens = (surnamesStr || '').trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) return { paternal: '', maternal: '' };
+    if (tokens.length === 1) return { paternal: tokens[0], maternal: '' };
+
+    const twoWordPrefixes = ['de la', 'de las', 'de los', 'de el'];
+    const oneWordPrefixes = ['del', 'de', 'san', 'santa', 'santo', 'da', 'do', 'dos', 'das', 'von', 'van'];
+
+    function consumeOneSurname(toks) {
+      if (toks.length >= 3) {
+        const p2 = (toks[0] + ' ' + toks[1]).toLowerCase();
+        if (twoWordPrefixes.includes(p2)) {
+          return { name: toks.slice(0, 3).join(' '), rest: toks.slice(3) };
+        }
+      }
+      if (toks.length >= 2) {
+        const p1 = toks[0].toLowerCase();
+        if (oneWordPrefixes.includes(p1)) {
+          return { name: toks.slice(0, 2).join(' '), rest: toks.slice(2) };
+        }
+      }
+      return { name: toks[0], rest: toks.slice(1) };
+    }
+
+    const first = consumeOneSurname(tokens);
+    const paternal = first.name;
+    const maternal = first.rest.join(' ');
+    return { paternal, maternal };
+  }
+
+  function parseFullSpanishName(originalTokens) {
+    if (!originalTokens || !originalTokens.length) return { paternal: '', maternal: '', given_names: '' };
+    if (originalTokens.length === 1) return { paternal: originalTokens[0], maternal: '', given_names: '' };
+    if (originalTokens.length === 2) return { paternal: originalTokens[0], maternal: '', given_names: originalTokens[1] };
+
+    const twoWordPrefixes = ['de la', 'de las', 'de los', 'de el'];
+    const oneWordPrefixes = ['del', 'de', 'san', 'santa', 'santo', 'da', 'do', 'dos', 'das', 'von', 'van'];
+
+    function consumeOneSurname(toks) {
+      if (toks.length >= 3) {
+        const p2 = (toks[0] + ' ' + toks[1]).toLowerCase();
+        if (twoWordPrefixes.includes(p2)) {
+          return { name: toks.slice(0, 3).join(' '), rest: toks.slice(3) };
+        }
+      }
+      if (toks.length >= 2) {
+        const p1 = toks[0].toLowerCase();
+        if (oneWordPrefixes.includes(p1)) {
+          return { name: toks.slice(0, 2).join(' '), rest: toks.slice(2) };
+        }
+      }
+      return { name: toks[0], rest: toks.slice(1) };
+    }
+
+    const first = consumeOneSurname(originalTokens);
+    if (!first.rest.length) {
+      return { paternal: first.name, maternal: '', given_names: '' };
+    }
+    const second = consumeOneSurname(first.rest);
+    return {
+      paternal: first.name,
+      maternal: second.name,
+      given_names: second.rest.join(' ')
+    };
+  }
+
   window.startAdRegistration = result => {
     if (busy) return; version++; source = result; catalog = null; clearCredentials();
     indices = result.usuarios.map((_, i) => i).filter(i => !result.usuarios[i].servicios_a_crear || result.usuarios[i].servicios_a_crear.includes('dominio') || result.usuarios[i].servicios_a_crear.includes('sgd'));
     drafts = indices.map(index => {
-      const user = result.usuarios[index], original = user.nombre_completo_original.trim().split(/\s+/), inferred = !user.apellidos && !user.nombres && original.length >= 3;
-      const last = (inferred ? original.slice(0, 2) : (user.apellidos || '').split(/\s+/)).filter(Boolean);
-      return {paternal: last.length <= 2 ? last[0] || '' : '', maternal: last.length === 2 ? last[1] : '', given_names: user.nombres || (inferred ? original.slice(2).join(' ') : ''), area: user.area || '', username: '', group_dn: '', ou_dn: '', dni: user.dni || '', servicios_a_crear: user.servicios_a_crear || ['dominio']};
+      const user = result.usuarios[index];
+      let paternal = '', maternal = '', given_names = '';
+      if (user.paterno) {
+        paternal = user.paterno;
+        maternal = user.materno || '';
+        given_names = user.nombres || '';
+      } else if (user.apellidos) {
+        const parsed = parseSpanishSurnames(user.apellidos);
+        paternal = parsed.paternal;
+        maternal = parsed.maternal;
+        given_names = user.nombres || '';
+      } else {
+        const original = (user.nombre_completo_original || '').trim().split(/\s+/).filter(Boolean);
+        const parsed = parseFullSpanishName(original);
+        paternal = parsed.paternal;
+        maternal = parsed.maternal;
+        given_names = parsed.given_names;
+      }
+      return {
+        paternal,
+        maternal,
+        given_names,
+        area: user.area || '',
+        username: user.usuario_propuesto || '',
+        group_dn: '',
+        ou_dn: '',
+        dni: user.dni || '',
+        servicios_a_crear: user.servicios_a_crear || ['dominio']
+      };
     });
     indices.forEach((index, i) => { source.usuarios[index].datos_sgd = {...drafts[i]}; });
     el('person').replaceChildren(); indices.forEach((index, i) => el('person').add(new Option(result.usuarios[index].nombre_completo_original, i)));

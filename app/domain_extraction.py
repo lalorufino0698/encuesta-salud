@@ -22,6 +22,31 @@ def domain_requested(value):
     return bool(re.search(r"\b(?:DOMINIO|DOMINO)\b", normalized(value)))
 
 
+def parse_spanish_surnames(surnames_str: str) -> tuple[str, str]:
+    """Separa apellidos en paterno y materno respetando partículas y apellidos compuestos."""
+    if not surnames_str:
+        return "", ""
+    tokens = clean(surnames_str).split()
+    if not tokens:
+        return "", ""
+    if len(tokens) == 1:
+        return tokens[0], ""
+
+    two_word_prefixes = {"de la", "de las", "de los", "de el"}
+    one_word_prefixes = {"del", "de", "san", "santa", "santo", "da", "do", "dos", "das", "von", "van"}
+
+    def consume_one(toks):
+        if len(toks) >= 3 and f"{toks[0]} {toks[1]}".lower() in two_word_prefixes:
+            return " ".join(toks[:3]), toks[3:]
+        if len(toks) >= 2 and toks[0].lower() in one_word_prefixes:
+            return " ".join(toks[:2]), toks[2:]
+        return toks[0], toks[1:]
+
+    paternal, rest = consume_one(tokens)
+    maternal = " ".join(rest)
+    return paternal, maternal
+
+
 def metadata(text):
     # Labels can be separate lines in the PDF reading order.
     match = re.search(r"(?mi)^\s*DE\s*:?[ \t]*(.*?)^\s*ASUNTO\s*:?[ \t]*", text, re.S)
@@ -137,7 +162,9 @@ def build_payload(text, tables, groups=None, source="documento.pdf", digest=None
         if key in seen:
             issues.append("Identidad repetida en el documento; comprobar duplicado.")
         seen.add(key)
+        paterno, materno = parse_spanish_surnames(surname) if surname else ("", "")
         users.append({**person, "apellidos": surname, "nombres": first,
+                      "paterno": paterno, "materno": materno,
                       "area": area, "grupo_ad": group,
                       "dominio_explicito": requested,
                       "estado": "pendiente_revision" if issues else "listo_para_simulacion",

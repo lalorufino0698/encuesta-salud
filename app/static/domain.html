@@ -235,7 +235,7 @@ const form = document.getElementById('form'), type = document.getElementById('ty
       if(type.value==='text') {
         const auto=mode.value==='automatic', dni=$(auto?'automatic-dni':'text-dni').value;
         const given=$(auto?'automatic-given':'text-given').value.trim(), surnames=$(auto?'automatic-surnames':'text-surnames').value.trim(), area=$(auto?'automatic-area':'text-area').value.trim();
-        response=await fetch('/api/simular-texto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto:`APELLIDOS Y NOMBRES | DNI | AREA\n${surnames} ${given} | ${dni} | ${area}`,servicios:selected})});
+        response=await fetch('/api/simular-texto',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto:`APELLIDOS Y NOMBRES | DNI | AREA\n${surnames}, ${given} | ${dni} | ${area}`,servicios:selected})});
       } else {
         const data=new FormData();data.append('file',$(type.value).files[0]);response=await fetch('/api/simular',{method:'POST',body:data});
       }
@@ -249,6 +249,6 @@ const form = document.getElementById('form'), type = document.getElementById('ty
   refresh();
 })();
 
-</script><script src="/registro-ad.js?v=20260911-entry-5"></script></html>
+</script><script src="/registro-ad.js?v=20261111-entry-6"></script></html>
 
 

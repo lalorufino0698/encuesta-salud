@@ -92,6 +92,8 @@ def _lookup_kmente(dni):
         'dni': dni,
         'nombres': names.strip(),
         'apellidos': surnames.strip(),
+        'paterno': ap_paterno.strip(),
+        'materno': ap_materno.strip(),
         'nombre_completo': full_name.strip()
     }
 
@@ -103,8 +105,19 @@ def fetch_dni_data(dni):
         data = _json(PRIMARY + dni)
         if data.get('names') or data.get('paternalLastName'):
             names = str(data.get('names') or '').strip().upper()
-            surnames = f"{data.get('paternalLastName') or ''} {data.get('maternalLastName') or ''}".strip().upper()
-            return {'encontrado': True, 'origen': 'principal', 'dni': dni, 'nombres': names, 'apellidos': surnames, 'nombre_completo': f'{names} {surnames}'.strip()}
+            paterno = str(data.get('paternalLastName') or '').strip().upper()
+            materno = str(data.get('maternalLastName') or '').strip().upper()
+            surnames = f"{paterno} {materno}".strip()
+            return {
+                'encontrado': True,
+                'origen': 'principal',
+                'dni': dni,
+                'nombres': names,
+                'apellidos': surnames,
+                'paterno': paterno,
+                'materno': materno,
+                'nombre_completo': f'{names} {surnames}'.strip()
+            }
     except Exception:
         pass
     try:
@@ -113,8 +126,19 @@ def fetch_dni_data(dni):
         person = result.get('datosPersona')
         if result.get('coResultado') == '0000' and person:
             names = str(person.get('prenombres') or '').strip().upper()
-            surnames = f"{person.get('apPrimer') or ''} {person.get('apSegundo') or ''}".strip().upper()
-            return {'encontrado': True, 'origen': 'secundaria', 'dni': dni, 'nombres': names, 'apellidos': surnames, 'nombre_completo': f'{names} {surnames}'.strip()}
+            paterno = str(person.get('apPrimer') or '').strip().upper()
+            materno = str(person.get('apSegundo') or '').strip().upper()
+            surnames = f"{paterno} {materno}".strip()
+            return {
+                'encontrado': True,
+                'origen': 'secundaria',
+                'dni': dni,
+                'nombres': names,
+                'apellidos': surnames,
+                'paterno': paterno,
+                'materno': materno,
+                'nombre_completo': f'{names} {surnames}'.strip()
+            }
     except Exception:
         pass
     try:
@@ -123,4 +147,4 @@ def fetch_dni_data(dni):
             return data
     except Exception:
         pass
-    return {'encontrado': False, 'origen': None, 'dni': dni, 'nombres': '', 'apellidos': '', 'nombre_completo': 'Persona no encontrada'}
+    return {'encontrado': False, 'origen': None, 'dni': dni, 'nombres': '', 'apellidos': '', 'paterno': '', 'materno': '', 'nombre_completo': 'Persona no encontrada'}
